@@ -1,0 +1,658 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
+  * All rights reserved.</center></h2>
+  *
+  * This software component is licensed by ST under Ultimate Liberty license
+  * SLA0044, the "License"; You may not use this file except in compliance with
+  * the License. You may obtain a copy of the License at:
+  *                             www.st.com/SLA0044
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "adc.h"
+#include "can.h"
+#include "crc.h"
+#include "dma.h"
+#include "i2c.h"
+#include "iwdg.h"
+#include "rtc.h"
+#include "spi.h"
+#include "tim.h"
+#include "usart.h"
+#include "usb_device.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "usbd_cdc_if.h"
+#include "application/MEMS_app.h"
+#if (BLE_SUPPORT==1)
+	#include "Sensor/app_bluenrg_2.h"
+	#include "OpModes.h"
+#endif
+#if (IO_EXP_PRESENT==1)
+	#include "platform/mcp23017.h"
+#endif
+#include "arm_math.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+__attribute__((__section__(".user_data"))) const char userConfig[64];
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+#if (IMU_PRESENT==1)
+//	const double_t g = 9.80665;				//g is the acceleration of gravity
+	const double_t g_to_ms2 = 9.80665;		//g to m/s^2 conversion factor
+	const double_t mg_to_g = 0.001;			//mg to g conversion factor
+	const double_t mg_to_ms2 = 0.00980665;	//mg to m/s^2 conversion factor
+	const double_t mdps_to_dps = 0.001;		//mdps to dps conversion factor
+	const double_t mGauss_to_uT = 0.1;		//mGauss to uTesla conversion factor
+	const double_t mGauss_to_uT50 = 0.002;	//mGauss to uTesla/50 conversion factor
+	const double_t uT50_to_mGauss = 500.0;	//uTesla/50 to mGauss conversion factor
+#endif
+#if ((PRESSURE_SENSOR_PRESENT==0) && (IMU_PRESENT==1))
+	double_t	Temperature = 19.3;
+	double_t	Pressure = 1013.25;
+	double_t	Altitude = 10.0;
+#endif
+#if (GUI_SUPPORT==1)
+	const double_t AccelConvFactor = 0.001;	//mg to g conversion factor
+	uint8_t DataLoggerActive = 0;
+	uint8_t Sensors_Enabled = 0;
+#else
+	const double_t AccelConvFactor = 0.00980665;	//mg to m/s^2 conversion factor
+	uint8_t DataLoggerActive = 1;
+	uint8_t Sensors_Enabled = 1;
+#endif
+bool button_pressed = false;
+uint8_t Version[] = "\r\nHW Version: X.X - FW Version: X.X.xx";
+//int64_t MEMS_LclData;
+
+FLASH_DATA_ORG FlashDataOrg = {.b_date_offset = 0x00, .b_time_offset = 0x04,
+.b_mdata.DeviceName_offset = 0x08, .b_mdata.HW_Version_offset = 0x0C,
+.b_mdata.SW_Version_offset = 0x10, .b_mdata.Vendor_ID_offset = 0x14, .b_mdata.Prdct_Code_offset = 0x18, .b_mdata.Rev_Number_offset = 0x1C,
+.b_mdata.Ser_Number_offset = 0x20, .b_status.s0_offset = 0x24, .b_status.s1_offset = 0x28, .b_status.s2_offset = 0x2C,
+.b_status.s3_offset = 0x30, .b_status.s4_offset = 0x34, .b_status.s5_offset = 0x38, .b_status.s6_offset = 0x3C,
+.b_status.s7_offset = 0x40, .b_status.s8_offset = 0x44, .b_status.s9_offset = 0x48, .b_status.sa_offset = 0x4C,
+.b_status.sb_offset = 0x50, .b_status.sc_offset = 0x54, .b_status.sd_offset = 0x58, .b_status.se_offset = 0x5C,
+.b_status.sf_offset = 0x60, .b_status.s10_offset = 0x64, .b_status.s11_offset = 0x68, .b_status.s12_offset = 0x6C, .b_status.s12 = 0xF50000,
+.b_status.s13_offset = 0x70, .b_status.s14_offset = 0x74, .b_status.s15_offset = 0x78, .b_status.s16_offset = 0x7C
+#if (POLINOMIAL_REGRESSION)
+,
+.b_status.s17_offset = 0x80, .b_status.s18_offset = 0x84, .b_status.s19_offset = 0x88, .b_status.s20_offset = 0x8C,
+.b_status.s21_offset = 0x90, .b_status.s22_offset = 0x94, .b_status.s23_offset = 0x98, .b_status.s24_offset = 0x9C,
+.b_status.s25_offset = 0xA0, .b_status.s26_offset = 0xA4, .b_status.s27_offset = 0xA8, .b_status.s28_offset = 0xAC,
+.b_status.s29_offset = 0xB0, .b_status.s30_offset = 0xB4, .b_status.s31_offset = 0xB8, .b_status.s32_offset = 0xBC,
+.b_status.s33_offset = 0xC0, .b_status.s34_offset = 0xC4, .b_status.s35_offset = 0xC8, .b_status.s36_offset = 0xCC,
+.b_status.s37_offset = 0xD0, .b_status.s38_offset = 0xD4, .b_status.s39_offset = 0xD8, .b_status.s40_offset = 0xDC,
+.b_status.s41_offset = 0xE0, .b_status.s42_offset = 0xE4, .b_status.s43_offset = 0xE8, .b_status.s44_offset = 0xEC,
+.b_status.s45_offset = 0xF0, .b_status.s46_offset = 0xF4, .b_status.s47_offset = 0xF8, .b_status.s48_offset = 0xFC,
+.b_status.s49_offset = 0x100, .b_status.s50_offset = 0x104, .b_status.s51_offset = 0x108, .b_status.s52_offset = 0x10C,
+.b_status.s53_offset = 0x110, .b_status.s54_offset = 0x114, .b_status.s55_offset = 0x118, .b_status.s56_offset = 0x11C,
+.b_status.s57_offset = 0x120, .b_status.s58_offset = 0x124, .b_status.s59_offset = 0x128, .b_status.s60_offset = 0x12C
+#endif
+};
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+#if	(USB_SUPPORT==1) 					//this is set in the port.h file
+	extern void usb_run(void);
+	extern int usb_init(void);
+	#if ((DATA_MODE==0) && (GUI_SUPPORT==1))
+		extern void send_usbmessage(uint8_t*, int);
+	#endif
+#endif
+#if ((TLCD_SUPPORT==1) || (GLCD_SUPPORT==1))
+	extern void FormatDisplayString(int *len, uint8_t* Buff, SENSOR_TYPE stype);
+#endif
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_RTC_Init();
+  MX_USB_DEVICE_Init();
+  MX_CAN1_Init();
+  MX_I2C1_Init();
+  MX_TIM3_Init();
+  MX_TIM1_Init();
+  MX_CRC_Init();
+  MX_TIM6_Init();
+  MX_I2C2_Init();
+  MX_SPI2_Init();
+  MX_ADC1_Init();
+  MX_TIM7_Init();
+  MX_USART3_UART_Init();
+  /* USER CODE BEGIN 2 */
+#if ((BLE_SUPPORT) && (BEACON_APP) && (USE_IWDGT))
+  MX_IWDG_Init();			//Caution!!! Moved here from code generated by CubeMX (When IWDT was activated)
+#endif
+//HAL_UART_MspDeInit(&huart2);			//To avoid the error that would occur if a serial communication
+  HAL_UART_MspDeInit(&huart3);			//is already active when the program starts
+  HAL_NVIC_ClearPendingIRQ(EXTI0_IRQn);
+  HAL_NVIC_ClearPendingIRQ(EXTI2_IRQn);
+  HAL_NVIC_ClearPendingIRQ(EXTI4_IRQn);
+  HAL_NVIC_ClearPendingIRQ(I2C1_EV_IRQn);
+  HAL_NVIC_ClearPendingIRQ(TIM1_UP_TIM10_IRQn);
+  HAL_NVIC_ClearPendingIRQ(TIM6_DAC_IRQn);
+  HAL_NVIC_ClearPendingIRQ(TIM3_IRQn);
+  HAL_NVIC_DisableIRQ(TIM6_DAC_IRQn);
+//__HAL_RTC_ALARMA_ENABLE(&hrtc);		//Enable RTC per second interrupt
+  HAL_RTCEx_SetSmoothCalib(&hrtc, RTC_SMOOTHCALIB_PERIOD_32SEC,		//Adjust RTC precision
+		  	  	  	  	   RTC_SMOOTHCALIB_PLUSPULSES_RESET, *((uint32_t*)(DATA_EEPROM_BASE+FlashDataOrg.b_status.s7_offset)));
+  HAL_NVIC_DisableIRQ(EXTI2_IRQn);
+  HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+  HAL_GPIO_DeInit(D3_LCD_BLE_INT_GPIO_Port, D3_LCD_BLE_INT_Pin);	//Pin Init will be made by MX_BlueNRG_2_Init() if BLE is enabled
+
+  HAL_TIM_Base_Stop_IT(&htim3);						//Stop Timer 3
+  __HAL_TIM_SetCounter(&htim3, 0);					//Clear Timer 3
+  __HAL_TIM_CLEAR_FLAG(&htim3, TIM_FLAG_UPDATE);	//Clear Timer 3 Update Interrupt Flag
+  HAL_TIM_Base_Stop_IT(&htim6);						//Stop Timer 6
+  __HAL_TIM_SetCounter(&htim6, 0);					//Clear Timer 6
+  __HAL_TIM_CLEAR_FLAG(&htim6, TIM_FLAG_UPDATE);	//Clear Timer 6 Update Interrupt Flag
+  HAL_TIM_Base_Start_IT(&htim7);					//Start Timer 7
+  ServiceTimersInit();
+
+//HAL_GPIO_WritePin(PC_11_DISC_GPIO_Port, PC_11_DISC_Pin, GPIO_PIN_RESET);	//Pull-up Enable on USBDP (Only for Olimex STM32-H103 Board)
+  leds_test = false; Link_Ok = true;
+  lcl_imu_data_rdy = false; send_lcl_imu_data = false; send_lcl_imu_data_to_ble = false; display_imu_data = false;
+  lcl_prs_data_rdy = false; send_lcl_prs_data = false; display_prs_data = false;
+  lcl_hum_data_rdy = false; send_lcl_hum_data = false; display_hum_data = false;
+  lcl_uvx_data_rdy = false; send_lcl_uvx_data = false; display_uvx_data = false;
+  lcl_als_data_rdy = false; send_lcl_als_data = false; display_als_data = false;
+  lcl_voc_data_rdy = false; send_lcl_voc_data = false; display_voc_data = false;
+  lcl_pms_data_rdy = false; send_lcl_pms_data = false; display_pms_data = false;
+  lcl_gas_data_rdy = false; send_lcl_gas_data = false; display_gas_data = false;
+  MidNight = false; MinMaxStored = false; Restart_Reserved = false;
+  stby_timer = 0; service_timer3 = 0;
+  service_timer0_expired = false; timer5s_expired = false;
+  WarmUpPeriod_expired = false; ColdRestart = false; BakUpSRamWiped = false; BLE_DataReady = false;
+  update_1s = false; update_5s = false; update_1m = update_1h = false; false; update_1d = false;
+  update_16Hz = 0; update_25Hz = 0; update_50Hz = 0; update_100Hz = 0;
+  t_flip = 0; NumberOfDevices = 0; SensorStatusReg = 0; StatusReg = 0; PreviousPage = 1;
+  internal_notifies_0 = 0; internal_notifies_1 = 0;
+
+#if (USE_BKUP_SRAM)
+//extern bool StartDataStrmng;
+  uint32_t counter_time_crnt = RTC_GetCounter(&hrtc);
+  uint32_t counter_time_prvs = 0;
+  uint8_t RestartCounter = 0;
+  const uint8_t WrmgUp_Rstrt_Timeout = 60;	//Minimum power-off time in seconds to trigger the
+  	  	  	  	  	  	  	  	  	  	  	//execution of a new analog sensors warm-up cycle
+  enable_backup_sram();
+  HAL_PWREx_EnableBkUpReg();
+  readBkpSram((uint8_t *)BakUpSRam_Data, sizeof(BakUpSRam_Data), 0);
+  disable_backup_sram();
+  if (BakUpSRam_Data[0] == BLE_MAGIC_NUMBER)
+  {
+	  BakUpSRam_Data[0] = 0;
+	  memcpy(&counter_time_prvs, &BakUpSRam_Data[1], 4);
+	  /*
+	   * If the actual TimeStamp is greater than WrmgUp_Rstrt_Timeout then it is assumed
+	   * that the restart (reset) event was generated by a power-cycle. Otherwise we assume
+	   * that it was generated by a WatchDog timeout event; in this case the warming-up of
+	   * the analog sensors is not performed.
+	   */
+	  if((counter_time_crnt - counter_time_prvs) < WrmgUp_Rstrt_Timeout)
+	  {
+		  WarmUpPeriod_expired = true;
+		  ColdRestart = true;
+		  //Restore Global Status Register
+		  memcpy(&StatusReg, &BakUpSRam_Data[70], 4);
+		  //Restore and increment the restart counter modulo 16...
+		  RestartCounter = BakUpSRam_Data[70];
+		  RestartCounter++; RestartCounter &= 0x0F;
+		  //...and copies the value to the status register first nibble
+		  StatusReg &= 0xFFFFFFF0; StatusReg |= (uint32_t)(RestartCounter);
+		  HOST_TO_BKPR_LE_32(BakUpSRam_Data+70, StatusReg);
+	  } else
+	  {	  //Reset the average values of the sensors written by the Store_MeanValues_BackupRTC() function every hour
+		  //Warning!!! This function has been moved to a dedicated procedure in TestEnv.c and UsartXTestEnv.c !!!
+		  //But.....
+		  //Resetting the average and Min_Max values means conditioning the "ApproxMovingAverage()" function with
+		  //the "BakUpSRamWiped" flag. This has caused problems. To be investigated further!
+#if defined(STM32F405xx)
+		  memset(&BakUpSRam_Data[6], 0x00, 68);		//Save Up_Time_H register
+		  memset(&BakUpSRam_Data[78], 0x00, 50);
+#elif defined(STM32F105xC)
+		  memset(&BakUpRTC_Data[6], 0x00, 67);		//Save Up_Time_H register & DayLight status byte (bit 31..24)
+		  memset(&BakUpRTC_Data[78], 0x00, 6);
+#endif
+	  }
+	  if (BakUpSRam_Data[36] == 0)	//If P_Max location is zero then it means that the backup SRam has been deleted
+	  {
+		  BakUpSRamWiped = true;
+	  }
+
+	  enable_backup_sram();
+	  writeBkpSram((uint8_t *)BakUpSRam_Data, sizeof(BakUpSRam_Data), 0);
+	  disable_backup_sram();
+  }
+#endif
+#if	(USB_SUPPORT==1) 							//this is set in the port.h file
+    // enable the USB functionality
+    usb_init();
+#endif
+#if (CAN_SUPPORT==1)
+    CAN_Config(&hcan1);
+//  CAN_Config(&hcan2);
+#endif
+#if (USART_SUPPORT==1)
+//  USART_Config(&huart2);
+	USART_Config(&huart3);
+#endif
+#if (IO_EXP_PRESENT==1)
+    MCP23017_status = MX_MCP23017_Init();
+	#if (TLCD_SUPPORT==1)
+	if (MCP23017_status == (uint8_t)MCP23017_OK)
+	{
+		send_tlcdmessage("IOEXP ",6);
+	}
+	#endif
+#endif
+#if (GAS_SENSOR_MODULE_PRESENT==1)
+	  ADC_Config(&hadc1);						//Configure the ADC peripheral
+#endif
+	AB_Init();									//Initialize Sensor System
+#if (USE_BKUP_SRAM)
+	ReStore_MeanValues_BackupRTC();
+#endif
+#if (TLCD_SUPPORT==1)
+    TLCD_status = MX_TLCD_Init();
+    send_tlcdmessage(WELCOME_STRING1, 26);
+    send_tlcdmessage(MY_FW_VERSION, 26);
+    Sleep(3000);
+    LCD_Clear();
+	send_tlcdmessage(ReadyDevices, strlen(ReadyDevices));
+#elif (GLCD_SUPPORT==1)
+    GLCD_status = MX_GLCD_Init();
+    SendWelcomeMessage();
+    Sleep(3000);
+	SendReadyDevicesMessage();
+#endif
+#if (BLE_SUPPORT)
+//  HAL_NVIC_DisableIRQ(EXTI0_IRQn);			//Made by BSP
+  	MX_BlueNRG_2_Init();
+	#if (BEACON_APP)
+  		button_manage();
+	#endif
+#endif
+	leds_test = true;							//Blink LEDs if init Ok
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+	while (1)
+	{
+#if ((GUI_SUPPORT==0) && (BLE_SUPPORT==0))
+		int n = 0;								//n = 0 enable Remote Control Mode
+#else
+		int n = 1;
+#endif
+#if (PRESSURE_SENSOR_PRESENT==1)
+	//Acquire data from pressure sensor and fill Msg stream
+		if (lcl_prs_data_rdy && Sensors_Enabled)	//Set in process_timer3_irq. Pressure/Temp and Time-Stamp data are acquired in timer3 irq
+		{
+			lcl_prs_data_rdy = false;
+			Pressure_Sensor_Handler(&PRS_Values, &dataseq1[0]);
+		}
+#endif
+#if (HUMIDITY_SENSOR_PRESENT==1)
+	//Acquire data from humidity sensor and fill Msg stream
+		if (lcl_hum_data_rdy && Sensors_Enabled)	//Set in process_timer3_irq. Pressure/Temp and Time-Stamp data are acquired in timer3 irq
+		{
+			lcl_hum_data_rdy = false;
+			Humidity_Sensor_Handler(&HUM_Values, &dataseq1[0]);
+		}
+#endif
+#if (UVx_SENSOR_PRESENT==1)
+	//Acquire data from UVx sensor and fill Msg stream
+		if (lcl_uvx_data_rdy && Sensors_Enabled)	//Set in process_timer3_irq. Pressure/Temp and Time-Stamp data are acquired in timer3 irq
+		{
+			lcl_uvx_data_rdy = false;
+			UVx_Sensor_Handler(&UVx_Values, &dataseq1[0]);
+		}
+#endif
+#if (ALS_SENSOR_PRESENT==1)
+	//Acquire data from UVx sensor and fill Msg stream
+		if (lcl_als_data_rdy && Sensors_Enabled)	//Set in process_timer3_irq. Pressure/Temp and Time-Stamp data are acquired in timer3 irq
+		{
+			lcl_als_data_rdy = false;
+//			ALS_Sensor_Handler(&ALS_Values, &dataseq1[0]);
+		}
+#endif
+#if (VOC_SENSOR_PRESENT==1)
+	//Acquire data from VOC sensor and fill Msg stream
+		if (lcl_voc_data_rdy && Sensors_Enabled)	//Set in process_timer3_irq. Pressure/Temp and Time-Stamp data are acquired in timer3 irq
+		{
+			lcl_voc_data_rdy = false;
+			VOC_Sensor_Handler(&VOC_Values, &dataseq1[0]);
+		}
+#endif
+#if (PARTICULATE_SENSOR_PRESENT==1)
+	//Acquire data from Particulate Matter sensor and fill Msg stream
+		if (lcl_pms_data_rdy && Sensors_Enabled)	//Set in process_timer3_irq. Pressure/Temp and Time-Stamp data are acquired in timer3 irq
+		{
+			lcl_pms_data_rdy = false;
+			Particulate_Sensor_Handler(&PMS_Values, &dataseq1[0]);
+		}
+#endif
+#if (GAS_SENSOR_MODULE_PRESENT==1)
+	//Acquire data from analog Gas sensor board and fill Msg stream
+		if (lcl_gas_data_rdy && Sensors_Enabled)	//Set in process_timer3_irq. Pressure/Temp and Time-Stamp data are acquired in timer3 irq
+		{
+			lcl_gas_data_rdy = false;
+			Gas_Sensor_Handler(&GAS_Values, &dataseq1[0]);
+		}
+#endif
+#if (IMU_PRESENT==1)
+		if (lcl_imu_data_rdy && Sensors_Enabled)	//Set in process_timer1_irq. IMU and Time Stamp data are acquired in timer1-OC1 irq
+		{
+			lcl_imu_data_rdy = false;
+			//Acquire data from enabled IMU sensors, call periodically calibration functions and fill Msg stream
+			IMU_Handler(&IMU_Values, &dataseq1[0]);
+			//Gyroscope Calibration
+			GC_Data_Handler(&IMU_Values, &dataseq1[0]);
+			//Accelerometer Calibration
+			AC_Data_Handler(&IMU_Values, &dataseq1[0]);
+			//Activity Recognition
+			AR_Data_Handler(&IMU_Values, &dataseq1[0]);
+			//Magnetometer Calibration
+			MC_Data_Handler(&IMU_Values, &dataseq1[0]);
+			//Activity Recognition
+			AR_Data_Handler(&IMU_Values, &dataseq1[0]);
+			//Sensor Fusion specific part
+			FX_Data_Handler(&IMU_Values, &dataseq1[0]);
+			//Velocity Estimate from Linear Acceleration
+//			VE_Data_Handler(&Linear_Acceleration_9X_0_data[0], &Linear_Acceleration_9X_1_data[0],
+// 							&Linear_Speed_9X_0_data[0], &Linear_Speed_9X_1_data[0], &Calibrated_Gyroscope_g_1_status[0]);
+			send_lcl_imu_data_to_ble = true;
+	#if (GUI_SUPPORT==1)
+			AB_Handler();
+	#elif (SEND_IMU_DATA_TO_TERMINAL)
+			AC_Handler(&n, &IMU_Values, &usbVCOMout[0]);
+	#endif
+		}
+#else	//IMU_PRESENT==0
+		if (update_5s && Sensors_Enabled)	//Set in process_timer3_irq. IMU and Time Stamp data are acquired in timer3 irq
+		{
+			update_5s = false;
+	#if (GUI_SUPPORT==1)
+			AB_Handler();
+	#endif
+		}
+#endif	//IMU_PRESENT==0
+#if (IO_EXP_PRESENT==1)
+		read_ports();
+#endif
+#if ((PRESSURE_SENSOR_PRESENT==1) && !(GUI_SUPPORT))	//Don't send data to VCP if GUI enabled
+		if (send_lcl_prs_data)
+		{
+			send_lcl_prs_data = false;
+	#if ((TLCD_SUPPORT==1) || (GLCD_SUPPORT==1))
+			FormatDisplayString(&n, &usbVCOMout[0], PRESSURE_SENSOR);
+	#endif
+		}
+#endif
+#if ((HUMIDITY_SENSOR_PRESENT==1) && !(GUI_SUPPORT))	//Don't send data to VCP if GUI enabled
+		if ((send_lcl_hum_data) && !(send_lcl_prs_data))
+		{
+			send_lcl_hum_data = false;
+	#if ((TLCD_SUPPORT==1) || (GLCD_SUPPORT==1))
+			FormatDisplayString(&n, &usbVCOMout[0], HUMIDITY_SENSOR);
+	#endif
+		}
+#endif
+#if ((UVx_SENSOR_PRESENT==1) && !(GUI_SUPPORT))			//Don't send data to VCP if GUI enabled
+		if ((send_lcl_uvx_data) && !(send_lcl_prs_data) && !(send_lcl_hum_data))
+		{
+			send_lcl_uvx_data = false;
+	#if ((TLCD_SUPPORT==1) || (GLCD_SUPPORT==1))
+			FormatDisplayString(&n, &usbVCOMout[0], UVx_SENSOR);
+	#endif
+		}
+#endif
+#if ((ALS_SENSOR_PRESENT==1) && !(GUI_SUPPORT))			//Don't send data to VCP if GUI enabled
+		if ((send_lcl_als_data) && !(send_lcl_uvx_data) && !(send_lcl_prs_data) && !(send_lcl_hum_data))
+		{
+			send_lcl_als_data = false;
+	#if ((TLCD_SUPPORT==1) || (GLCD_SUPPORT==1))
+			FormatDisplayString(&n, &usbVCOMout[0], ALS_SENSOR);
+	#endif
+		}
+#endif
+#if ((VOC_SENSOR_PRESENT==1) && !(GUI_SUPPORT))			//Don't send data to VCP if GUI enabled
+		if ((send_lcl_voc_data) && !(send_lcl_prs_data) && !(send_lcl_hum_data) && !(send_lcl_als_data) && \
+		   !(send_lcl_uvx_data))
+		{
+			send_lcl_voc_data = false;
+	#if ((TLCD_SUPPORT==1) || (GLCD_SUPPORT==1))
+			FormatDisplayString(&n, &usbVCOMout[0], VOC_SENSOR);
+	#endif
+		}
+#endif
+#if ((PARTICULATE_SENSOR_PRESENT==1) && !(GUI_SUPPORT))	//Don't send data to VCP if GUI enabled
+		if ((send_lcl_pms_data) && !(send_lcl_prs_data) && !(send_lcl_hum_data) && !(send_lcl_als_data) && \
+		   !(send_lcl_uvx_data) && !(send_lcl_voc_data))
+		{
+			send_lcl_pms_data = false;
+	#if ((TLCD_SUPPORT==1) || (GLCD_SUPPORT==1))
+			FormatDisplayString(&n, &usbVCOMout[0], PARTICULATE_SENSOR);
+	#endif
+		}
+#endif
+//  MX_X_CUBE_MEMS1_Process();
+#if (DATA_MODE==0)
+	#if ((BLE_SUPPORT) && (BEACON_APP))
+		if (BLE_DataReady)
+			MX_BlueNRG_2_Process();
+		#if (USE_IWDGT)
+		else
+			HAL_IWDG_Refresh(&hiwdg);
+		#endif
+	#endif
+		if(n > 0)
+		{
+	#if (GUI_SUPPORT==0)
+			if ((display_imu_data) || (display_prs_data) || (display_hum_data) || (display_uvx_data) || (display_als_data) || \
+				(display_voc_data) || (display_pms_data) || (display_gas_data))
+			{
+				display_imu_data = false;
+				display_prs_data = false;
+				display_hum_data = false;
+				display_uvx_data = false;
+				display_als_data = false;
+				display_voc_data = false;
+				display_pms_data = false;
+				display_gas_data = false;
+		#if (TLCD_SUPPORT==1)
+				send_tlcdmessage((char*)&usbVCOMout[0], n);
+		#elif (GLCD_SUPPORT==1)
+				ReDrawPage_S0(t_flip);
+				if (t_flip != 1)
+					ReDrawPage_S1(t_flip);
+		#elif ((BLE_SUPPORT) && (BEACON_APP))
+				Refresh_AQI();
+		#elif ((BLE_SUPPORT) && (SENSOR_APP))
+				MX_BlueNRG_2_Process();
+		#endif
+			}
+	#else	//GUI_SUPPORT==1
+		#if	(USB_SUPPORT==1)
+			send_usbmessage(&dataseq[0], Message_Length);	//Data to be displayed by STM UnicleoGUI
+//		#elif (USART_SUPPORT==1)	//At the moment UnicleoGUI support is foreseen only on the USB interface
+//			send_usart3message(&dataseq[0], Message_Length);//Data to be displayed by STM UnicleoGUI
+		#endif
+	#endif	//GUI_SUPPORT==0
+		}
+	#if ((GUI_SUPPORT==0) && (BLE_SUPPORT==0))
+		else			//When n = 0 Remote Control Mode can send/receive message from SENSUS191
+		{				//n = 0 when SENSUS191 displays the Welcome or the Devices Present screens
+		#if (GLCD_SUPPORT==1)
+			if ((update_1s) && (t_flip == 1))	//Clock is updated every seconds in page 1
+			{
+				update_1s = false;
+				ReDrawPage_S1(1);
+			}
+		#endif
+		}
+	#endif	//(GUI_SUPPORT==0) && (BLE_SUPPORT==0)
+	#if	(USB_SUPPORT==1)
+		usb_run();
+	#endif
+	#if (USART_SUPPORT==1)
+		usart3_run();
+	#endif
+#endif	//DATA_MODE==0
+
+#if (CAN_SUPPORT==1)
+    can1_run();
+#endif
+
+	}
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE
+                              |RCC_OSCILLATORTYPE_LSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  while(1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+
+#ifdef  USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
