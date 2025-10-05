@@ -267,7 +267,7 @@ typedef struct board_status	// 3° order polynomial regression: y = β0 + β1*x 
 	uint8_t s15_offset;	//offset from 0x080E0000: 0x78
 	uint32_t s16;
 	uint8_t s16_offset;	//offset from 0x080E0000: 0x7C
-#if (POLINOMIAL_REGRESSION)
+#if (ENV_POLINOMIAL_REGRESSION)
 	uint32_t s17;		//Coeff. β1 of the 1° order polynomial regression for the Temperature modeling
 	uint8_t s17_offset;	//offset from 0x080E0000: 0x80
 	uint32_t s18;		//Coeff. β1 of the 1° order polynomial regression for the Pressure modeling
@@ -276,7 +276,8 @@ typedef struct board_status	// 3° order polynomial regression: y = β0 + β1*x 
 	uint8_t s19_offset;	//offset from 0x080E0000: 0x88
 	uint32_t s20;		//Coeff. β1 of the 1° order polynomial regression for the spare modeling
 	uint8_t s20_offset;	//offset from 0x080E0000: 0x8C
-
+#endif
+#if (AQ_POLINOMIAL_REGRESSION)
 	uint32_t s21;		//Coeff. β0+ε of the 3° order polynomial regression for the CH2O modeling
 	uint8_t s21_offset;	//offset from 0x080E0000: 0x90
 	uint32_t s22;		//Coeff. β1 of the 3° order polynomial regression for the CH2O modeling
