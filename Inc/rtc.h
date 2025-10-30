@@ -45,8 +45,10 @@ int RtcSynchPrediv;
 typedef struct
 {
   uint8_t date[3];
-  uint8_t time[3];
+  uint8_t time[4];
 } DateTime_t;
+
+DateTime_t Stamp;
 
 /** @brief Macro that stores Value into Backup register in Little Endian Format (2 bytes)*/
 #define HOST_TO_BKPR_LE_16(buf, val)	( ((buf)[0] =  (uint8_t) (val)    ) , \
@@ -76,7 +78,6 @@ void CheckDayLigth(RTC_HandleTypeDef* rtcHandle, uint8_t sec, uint8_t min, uint8
 												 uint8_t day, uint8_t month, uint8_t year);
 uint32_t RTC_GetCounter(RTC_HandleTypeDef* rtcHandle);
 void RTC_DateTimeStamp(RTC_HandleTypeDef* rtcHandle, DateTime_t *Stamp);
-void RTC_Handler(RTC_HandleTypeDef* rtcHandle, uint8_t* Buff);
 void RTC_DateRegulate(RTC_HandleTypeDef* rtcHandle, uint8_t y, uint8_t m, uint8_t d, uint8_t dw);
 void RTC_TimeRegulate(RTC_HandleTypeDef* rtcHandle, uint8_t hh, uint8_t mm, uint8_t ss, uint32_t Format);
 void enable_backup_sram(void);
