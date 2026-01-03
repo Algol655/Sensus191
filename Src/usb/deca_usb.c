@@ -291,7 +291,7 @@ USBD_StatusTypeDef DW_VCP_DataTx (uint8_t* Buf, uint32_t Len)
   */
 USBD_StatusTypeDef DW_VCP_DataRx (uint8_t* Buf, uint32_t Len)
 {
-  #if ((DATA_MODE==1) && (NORMAL_MODE==0))
+#if ((DATA_MODE==1) && (NORMAL_MODE==0))
   //If in Data Mode you plan to use some form of post-processing on the received
   //VCP data (local_have_data = 1) then store the Rx data in a dedicated buffer
   //(local_buff).
@@ -407,7 +407,7 @@ void send_usbmessage(uint8_t *string, int len)
     	if(local_have_data == 0)
     	{
     		memcpy(&tx_buff[0], string, len);
-    #if ((DATA_MODE==0) && (GUI_SUPPORT==0) && (BLE_SUPPORT==0))
+    #if ((DATA_MODE==0) && (GUI_SUPPORT==0) && (BLE_SUPPORT==0) && (LoRa_SUPPORT==0))
     		tx_buff[len] = '\r';
     		tx_buff[len+1] = '\n';
     		tx_buff_length = len + 2;
