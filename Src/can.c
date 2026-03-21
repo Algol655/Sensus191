@@ -512,3 +512,4 @@ uint8_t CAN_GetLSBTransmitErrorCounter(CAN_HandleTypeDef* CanHandle)
 	return counter;
 }
 /* USER CODE END 1 */
+

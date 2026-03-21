@@ -42,6 +42,7 @@ void MX_RTC_Init(void)
 #endif
 //extern FLASH_DATA_ORG FlashDataOrg;
 //hrtc.Init.AsynchPrediv = *((uint32_t*)(DATA_EEPROM_BASE + FlashDataOrg.b_status.s8_offset));
+  extern uint8_t HW_Version[5];
   /* USER CODE END RTC_Init 1 */
 
   /** Initialize RTC Only
@@ -130,9 +131,18 @@ void MX_RTC_Init(void)
   }
   /** Enable Calibration
   */
-  if (HAL_RTCEx_SetCalibrationOutPut(&hrtc, RTC_CALIBOUTPUT_512HZ) != HAL_OK)
+  if (HW_Version[0] == 0x31)
   {
-    Error_Handler();
+	  if (HAL_RTCEx_DeactivateCalibrationOutPut(&hrtc) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
+  } else
+  {
+	  if (HAL_RTCEx_SetCalibrationOutPut(&hrtc, RTC_CALIBOUTPUT_512HZ) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
   }
 #endif
   /* USER CODE END RTC_Init 2 */
@@ -194,8 +204,8 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef* rtcHandle)
  *                          MY RTC CODE
  ************************************************************************/
 //#pragma GCC optimize ("O0")
-void CheckDayLigth(RTC_HandleTypeDef* rtcHandle, uint8_t sec, uint8_t min, uint8_t hour,
-												 uint8_t day, uint8_t month, uint8_t year)
+uint32_t CheckDayLigth(RTC_HandleTypeDef* rtcHandle, uint8_t sec, uint8_t min, uint8_t hour,
+												     uint8_t day, uint8_t month, uint8_t year)
 {
 	uint8_t Index;
 	uint32_t Counter, DayLigthPeriod;
@@ -227,7 +237,7 @@ void CheckDayLigth(RTC_HandleTypeDef* rtcHandle, uint8_t sec, uint8_t min, uint8
 	DayLigthPeriod = HAL_RTC_DST_ReadStoreOperation(rtcHandle);
 	Index = year - StartYear;
 	if ((Index < 0) || (Index > 12))
-		return;
+		return Counter;
 	/*
 	 * When switching back to standard time, one hour is subtracted from the RTC Counter value.
 	 * This causes a bounce between the daylight saving time setting and the standard time setting in the comparison on line 255.
@@ -267,6 +277,8 @@ void CheckDayLigth(RTC_HandleTypeDef* rtcHandle, uint8_t sec, uint8_t min, uint8
 			HAL_RTC_DST_ClearStoreOperation(rtcHandle);
 		}
 	}
+
+	return Counter;
 }
 
 /**
@@ -291,6 +303,7 @@ void RTC_DateTimeStamp(RTC_HandleTypeDef* rtcHandle, DateTime_t *Stamp)
 	int32_t ans_int32;
 	RTC_DateTypeDef date;
 	RTC_TimeTypeDef time;
+	extern FLASH_DATA_ORG FlashDataOrg;
 
 	if(rtcHandle->Instance==RTC)
 	{
@@ -314,7 +327,7 @@ void RTC_DateTimeStamp(RTC_HandleTypeDef* rtcHandle, DateTime_t *Stamp)
 		sub_sec = (uint8_t)ans_uint32;
 
 #if (RTC_SET_VALUES==0)
-		CheckDayLigth(rtcHandle, time.Seconds, time.Minutes, time.Hours, date.Date, date.Month, date.Year);
+		Stamp->epoch_timestamp = CheckDayLigth(rtcHandle, time.Seconds, time.Minutes, time.Hours, date.Date, date.Month, date.Year);
 #endif
 
 		Stamp->date[0] = (uint8_t)date.Month;
@@ -324,6 +337,9 @@ void RTC_DateTimeStamp(RTC_HandleTypeDef* rtcHandle, DateTime_t *Stamp)
 		Stamp->time[1] = (uint8_t)time.Minutes;
 		Stamp->time[2] = (uint8_t)time.Seconds;
 		Stamp->time[3] = sub_sec;
+
+		memcpy(&FlashDataOrg.b_date, &Stamp->date[0], 3);
+		memcpy(&FlashDataOrg.b_time, &Stamp->time[0], 4);
 
 		if (!(Stamp->time[0] | Stamp->time[1]))
 		{
@@ -552,3 +568,4 @@ int8_t readBkpRTC( uint8_t *data, uint16_t bytes, uint16_t offset)
 	return 0;
 }
 /* USER CODE END 1 */
+

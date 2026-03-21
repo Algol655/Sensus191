@@ -46,6 +46,9 @@ typedef struct
 {
   uint8_t date[3];
   uint8_t time[4];
+  uint32_t epoch_timestamp;	//Date-Time number of seconds
+  int32_t time_diff;		//General purposes elapsed time register in seconds
+  int32_t time_diff_ppm;	//General purposes elapsed time register in ppm
 } DateTime_t;
 
 DateTime_t Stamp;
@@ -74,8 +77,8 @@ DateTime_t Stamp;
 void MX_RTC_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-void CheckDayLigth(RTC_HandleTypeDef* rtcHandle, uint8_t sec, uint8_t min, uint8_t hour,
-												 uint8_t day, uint8_t month, uint8_t year);
+uint32_t CheckDayLigth(RTC_HandleTypeDef* rtcHandle, uint8_t sec, uint8_t min, uint8_t hour,
+												     uint8_t day, uint8_t month, uint8_t year);
 uint32_t RTC_GetCounter(RTC_HandleTypeDef* rtcHandle);
 void RTC_DateTimeStamp(RTC_HandleTypeDef* rtcHandle, DateTime_t *Stamp);
 void RTC_DateRegulate(RTC_HandleTypeDef* rtcHandle, uint8_t y, uint8_t m, uint8_t d, uint8_t dw);
