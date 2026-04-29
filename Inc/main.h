@@ -140,6 +140,7 @@ void Error_Handler(void);
 #define NORMAL_MODE (1)					//As an alternative to DATA_MODE, GUI_SUPPORT
 #define DATA_MODE	(0)					//1 when the node is used as an end-point of a wireless data link (e.g. BLE, LORA, UWB ...)
 #define IO_EXP_PRESENT (1)
+#define DCF77_PRESENT			(0)
 //Sensors defines section				//When IMU_PRESENT = 1 UnicleoGUI graphics only the accelerometer, Gyroscope and Magnet. data.
 #define OUTDOOR_MODE			(1)		//Set always to 1 when the Gases Sensor Board is mounted and GSB_HW_VER = 1.0 !!!
 #define IMU_PRESENT				(0)		//When IMU_PRESENT = 0 UnicleoGUI graphics only the environmental sensor data.

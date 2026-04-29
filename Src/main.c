@@ -331,6 +331,10 @@ int main(void)
 #if (GAS_SENSOR_MODULE_PRESENT==1)
 	  ADC_Config(&hadc1);						//Configure the ADC peripheral
 #endif
+#if (DCF77_PRESENT==1)
+	  DCF77_reset();
+	  DCF77_enable();
+#endif
 	AB_Init();									//Initialize Sensor System
 #if (USE_BKUP_SRAM)
 	ReStore_MeanValues_BackupRTC();
