@@ -90,3 +90,10 @@ V. 2.09.01	(Rilasciata il 2026/29/04)
 1) Ottimizzata la funzione MX_BlueNRG_2_Process(), come già fatto in SensusL (Ok)
 2) Migliorata la gestione degli interrupt dell'IO expander MCP23017 (Ok)
 3) Migliorata la funzione di test degli ingressi digitali nell'ambiente di test/configurazione (Ok)
+
+V. 2.09.02	(Rilasciata il 2026/09/06)
+1) Migliorata la compensazione in funzione della temperatura dei sensori elettrochimici Winsen MExx (Ok)
+2) Alcuni miglioramenti nella gestione del convertitore AD per i sensori analogici (Ok)
+3) Miglorate le curve di calibrazione e quelle per la compensazione in funzione della tempratura e umidità 
+   del sensore di formaldeide SMD1001 (Ok)
+4) Migliorato il filtraggio dei canali analogici (Ok)

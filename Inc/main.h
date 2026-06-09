@@ -142,12 +142,13 @@ void Error_Handler(void);
 #define IO_EXP_PRESENT (1)
 #define DCF77_PRESENT			(0)
 //Sensors defines section				//When IMU_PRESENT = 1 UnicleoGUI graphics only the accelerometer, Gyroscope and Magnet. data.
-#define OUTDOOR_MODE			(1)		//Set always to 1 when the Gases Sensor Board is mounted and GSB_HW_VER = 1.0 !!!
+#define OUTDOOR_MODE			(0)		//Set always to 1 when the Gases Sensor Board is mounted and GSB_HW_VER = 1.0 !!!
 #define IMU_PRESENT				(0)		//When IMU_PRESENT = 0 UnicleoGUI graphics only the environmental sensor data.
 #define PRESSURE_SENSOR_PRESENT (1)
 #define HUMIDITY_SENSOR_PRESENT (1)
 #define UVx_SENSOR_PRESENT		(1)		//In V2.x board uses the LTR390 sensor for both Ambient Light (ALS) and UV Index (UVI). In V1.x board use VEML6075 as UVI sensor
-#define ALS_SENSOR_PRESENT		(1)		//In V2.x board uses the VEML7700 sensor only for Ambient Light (ALS). Not present in V1.x board version
+#define ALS_SENSOR_PRESENT		(1)		//The version 2.x board can only use the VEML7700 sensor for Ambient Light (ALS).
+										//However, it must be set to "1" if it is to transmit via BLE or LoRa. Not present in V1.x board version
 #define VOC_SENSOR_PRESENT		(1)
 #define PARTICULATE_SENSOR_PRESENT (1)
 #define GAS_SENSOR_MODULE_PRESENT  (1)	//Must be understood as "USE_ADC"
@@ -159,7 +160,7 @@ void Error_Handler(void);
 #define DATA_EEPROM_BASE (0x080E0000)	//Last flash sector (11) is used as EEPROM to store/load data. See processor reference manual
 #define USE_BKUP_SRAM	(1)				//1 = Internal Back-Up SRAM is used
 #define SRAM_BKUP_SIZE	(4096)			//Internal Back-Up SRAM size. See processor reference manual
-#define USE_IWDGT 		(1)				//1 = IWDGT activated (=1 only in LoRa or BLE BEACON MODE!!!)
+#define USE_IWDGT 		(0)				//1 = IWDGT activated (=1 only in LoRa or BLE BEACON MODE!!!)
 /**************************/
 /*    Project Settings    */
 /**************************/
@@ -167,15 +168,16 @@ void Error_Handler(void);
 										//according to the set coefficients
 #define AQ_POLINOMIAL_REGRESSION	(0)	//When 1 is applied the polynomial regression curve to the values ​​read by the Air Quality sensors
 										//according to the set coefficients
-#define CALC_DEWPOINT	(1)				//When the DewPoint is calculated and displayed. CALC_ALTITUDE must be 0
-#define CALC_ALTITUDE	(0)				//When the altitude calculated according to barometric formula
+#define CALC_DEWPOINT	(1)				//When 1 the DewPoint is calculated and displayed. CALC_ALTITUDE must be 0
+#define CALC_ALTITUDE	(0)				//When 1 the altitude calculated according to barometric formula
 										//to the atmospheric pressure will be displayed. CALC_DEWPOINT must be 0
 //GUI defines section
 #define TLCD_SUPPORT	(0)				//1 to support a Text LCD 24xN. GLCD_SUPPORT and TFT_SUPPORT must both be zero!
-#define GLCD_SUPPORT	(0)				//1 to support a Graphic LCD 192x64. TLCD_SUPPORT and TFT_SUPPORT must both be zero!
+#define GLCD_SUPPORT	(1)				//1 to support a Graphic LCD 192x64. TLCD_SUPPORT and TFT_SUPPORT must both be zero!
 #define TFT_SUPPORT		(0)				//1 to support a TouchScreen TFT Graphic LCD. TLCD_SUPPORT and GLCD_SUPPORT must both be zero!
-#define BLE_SUPPORT		(1)				//1: Sensor data are sent to the BLE module. GUI_SUPPORT must be zero
+#define BLE_SUPPORT		(0)				//1: Sensor data are sent to the BLE module. GUI_SUPPORT must be zero
 #define LoRa_SUPPORT	(0)				//1: Sensor data are sent to the LoRa module. GUI_SUPPORT must be zero
+#define HS_TX_MODE		(0)				//HighSpeed Beacon Mode: Valid only in LoRa mode. Set to 1 for testing purposes only!
 #define GUI_SUPPORT		(0)				//Set to 1 when STM UNICLEO Graphical User Interface is used to Display/Control sensors data
 										//Warning!! You have to enable all sensors when Unicleo mode is enabled and BLE_SUPPORT must be zero
 										//Warning!! When UnicleoGUI == 1 the possibility of displaying the data on a local display is excluded
