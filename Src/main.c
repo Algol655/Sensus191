@@ -200,6 +200,7 @@ int main(void)
   MX_SPI2_Init();
   MX_ADC1_Init();
   MX_TIM7_Init();
+  MX_IWDG_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
 #if (SENSOR_REMOTE_MODE && USE_IWDGT)

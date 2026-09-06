@@ -305,6 +305,8 @@ void RTC_DateTimeStamp(RTC_HandleTypeDef* rtcHandle, DateTime_t *Stamp)
 	RTC_TimeTypeDef time;
 	extern FLASH_DATA_ORG FlashDataOrg;
 
+	MidNight = false;
+	MidNightPastFive = false;
 	if(rtcHandle->Instance==RTC)
 	{
 		if (HAL_RTC_GetTime(rtcHandle, &time, FORMAT_BIN) != HAL_OK)
@@ -344,9 +346,10 @@ void RTC_DateTimeStamp(RTC_HandleTypeDef* rtcHandle, DateTime_t *Stamp)
 		if (!(Stamp->time[0] | Stamp->time[1]))
 		{
 			MidNight = true;
-		} else
+		}
+		if (!(Stamp->time[0]) && (Stamp->time[1] < 6))	// MinMaxStored remains true for five minutes after midnight
 		{
-			MidNight = false;
+			MidNightPastFive = true;
 		}
 	}
 }
